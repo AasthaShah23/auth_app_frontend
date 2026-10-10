@@ -6,7 +6,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Users, Activity, CheckCircle2 } from "lucide-react";
+import { Users, Activity, CheckCircle2, Shield } from "lucide-react";
+import { DashboardWelcome } from "@/presentation/components/modules/dashboard/dashboard-welcome";
 
 export const metadata = {
   title: "Dashboard - Clean Architecture Next.js",
@@ -16,9 +17,8 @@ export const metadata = {
 export default function DashboardPage() {
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard Overview</h1>
-      </div>
+      {/* Dynamic Welcome card with user details from Zustand */}
+      <DashboardWelcome />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
@@ -59,14 +59,17 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Architecture Information</CardTitle>
+          <CardTitle>Session & Security Architecture</CardTitle>
           <CardDescription>
-            Next.js App Router with Shadcn UI & Clean Architecture
+            httpOnly Cookie JWT Storage + Zustand Global State Management
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            This dashboard is rendered inside the <code className="bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-xs font-mono text-blue-600">src/app/(dashboard)/dashboard/page.tsx</code> route group, inheriting the dashboard sidebar navigation layout.
+            • <strong>Secure JWT Storage:</strong> Authentication tokens are stored inside secure, HTTP-only, SameSite=Lax cookies, completely inaccessible to client-side XSS attacks.
+          </p>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+            • <strong>Global State:</strong> User details, profile information, and authentication statuses are managed globally in <code className="bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-xs font-mono text-indigo-600">Zustand (useAuthStore)</code> for instant reactive UI updates.
           </p>
         </CardContent>
       </Card>

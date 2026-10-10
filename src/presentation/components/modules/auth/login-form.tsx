@@ -3,26 +3,31 @@
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { loginSchema, type LoginFormValues } from "@/shared/validators/auth.validator";
+import { useAuthStore } from "@/presentation/store/auth.store";
+import { toast } from "sonner";
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = React.useState(false);
-  const [serverError, setServerError] = React.useState<string | null>(null);
-  const [isSuccess, setIsSuccess] = React.useState(false);
   const [isMounted, setIsMounted] = React.useState(false);
+
+  const { login, clearError, isLoading } = useAuthStore();
 
   React.useEffect(() => {
     setIsMounted(true);
-  }, []);
+    clearError();
+  }, [clearError]);
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    reset,
+    formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -34,25 +39,29 @@ export function LoginForm() {
   });
 
   async function onSubmit(data: LoginFormValues) {
-    setServerError(null);
     try {
-      // Simulated authentication call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await login({
+        email: data.email,
+        password: data.password,
+      });
 
-      if (data.email === "test@error.com") {
-        throw new Error("Invalid email or password");
-      }
+      // Clear the form fields on success
+      reset();
 
-      setIsSuccess(true);
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 600);
+      // Show success toast notification
+      toast.success("Login Successful", {
+        description: "Welcome back!",
+      });
+
+      const redirectPath = searchParams?.get("redirect") || "/dashboard";
+      router.push(redirectPath);
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setServerError(err.message);
-      } else {
-        setServerError("Authentication failed. Please try again.");
-      }
+      const message =
+        err instanceof Error ? err.message : "Invalid email or password. Please try again.";
+      // Show error toast notification
+      toast.error("Login Failed", {
+        description: message,
+      });
     }
   }
 
@@ -89,19 +98,6 @@ export function LoginForm() {
           </div>
         </div>
 
-        {/* Server status banner */}
-        {serverError && (
-          <div className="mb-5 rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-600 text-center animate-in fade-in">
-            {serverError}
-          </div>
-        )}
-
-        {isSuccess && (
-          <div className="mb-5 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-700 text-center animate-in fade-in">
-            Login successful! Redirecting...
-          </div>
-        )}
-
         {/* Login Form */}
         <form
           onSubmit={handleSubmit(onSubmit)}
@@ -116,7 +112,7 @@ export function LoginForm() {
                 type="email"
                 placeholder="Email ID"
                 autoComplete="email"
-                disabled={isSubmitting || isSuccess}
+                disabled={isLoading}
                 suppressHydrationWarning
                 {...register("email")}
                 className="w-full bg-transparent border-0 p-0 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-0 disabled:opacity-50"
@@ -137,7 +133,7 @@ export function LoginForm() {
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
                 autoComplete="current-password"
-                disabled={isSubmitting || isSuccess}
+                disabled={isLoading}
                 suppressHydrationWarning
                 {...register("password")}
                 className="w-full bg-transparent border-0 p-0 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-0 disabled:opacity-50 pr-7"
@@ -182,22 +178,22 @@ export function LoginForm() {
             </label>
 
             <Link
-              href="#"
+              href="/forgot-password"
               className="text-indigo-600 hover:text-indigo-800 italic font-medium transition-colors"
             >
               Forgot Password?
             </Link>
           </div>
 
-          {/* Gradient Submit Button */}
+          {/* Gradient Submit Button with Loading Spinner */}
           <div className="pt-3">
             <button
               type="submit"
-              disabled={isSubmitting || isSuccess}
+              disabled={isLoading}
               suppressHydrationWarning
               className="w-full py-3.5 px-6 rounded-2xl text-xs sm:text-sm font-semibold tracking-wider text-white uppercase bg-gradient-to-r from-indigo-600 via-indigo-700 to-blue-600 hover:from-indigo-700 hover:to-blue-700 shadow-md shadow-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/30 active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {isSubmitting ? (
+              {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin text-white" />
                   <span>Logging in...</span>
@@ -208,6 +204,17 @@ export function LoginForm() {
             </button>
           </div>
         </form>
+
+        {/* Footer: Link to Sign Up */}
+        <div className="mt-6 pt-4 border-t border-zinc-200/60 text-center text-xs text-zinc-600">
+          Don&apos;t have an account?{" "}
+          <Link
+            href="/signup"
+            className="font-semibold text-indigo-600 hover:text-indigo-800 hover:underline ml-1"
+          >
+            Sign up here
+          </Link>
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { Metadata } from "next";
 import { LoginForm } from "@/presentation/components/modules/auth/login-form";
+import { Loader2 } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Login - Account Sign In",
@@ -14,9 +16,17 @@ export default function LoginPage() {
       <div className="absolute bottom-0 right-0 w-[400px] sm:w-[600px] h-[400px] sm:h-[500px] bg-gradient-to-t from-blue-200/40 via-indigo-100/30 to-transparent blur-[130px] pointer-events-none" />
       <div className="absolute bottom-10 left-10 w-[300px] h-[300px] bg-indigo-100/40 blur-[100px] pointer-events-none" />
 
-      {/* Centered Login Card */}
+      {/* Centered Login Card with Suspense boundary */}
       <div className="relative z-10 w-full flex items-center justify-center">
-        <LoginForm />
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            </div>
+          }
+        >
+          <LoginForm />
+        </Suspense>
       </div>
     </main>
   );
