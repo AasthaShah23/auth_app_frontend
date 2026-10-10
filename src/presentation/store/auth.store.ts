@@ -1,31 +1,35 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { devtools } from 'zustand/middleware';
 import { User, LoginCredentials, SignupCredentials } from '@/domain/entities/auth.entity';
+import { UserProfile } from '@/domain/entities/profile.entity';
 import { container } from '@/infrastructure/di/container';
 import { httpClient } from '@/infrastructure/api/http-client';
-import { APP_CONSTANTS } from '@/shared/app.constants';
 
 interface AuthState {
   user: User | null;
+  profile: UserProfile | null;
   token: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
+  isInitialized: boolean;
   isLoading: boolean;
   error: string | null;
 
   // Actions
+  initSession: () => Promise<boolean>;
   login: (credentials: LoginCredentials) => Promise<void>;
   signup: (credentials: SignupCredentials) => Promise<void>;
   refreshAuthToken: () => Promise<string | null>;
+  fetchProfile: () => Promise<UserProfile | null>;
   logout: () => Promise<void>;
   clearError: () => void;
   setUser: (user: User | null) => void;
-  syncSessionCookies: (token: string | null, refreshToken?: string | null) => Promise<void>;
+  setProfile: (profile: UserProfile | null) => void;
 }
 
 /**
  * Sets or removes secure httpOnly cookies on the Next.js server side.
- * This prevents XSS attacks from accessing sensitive JWT tokens.
+ * No tokens or user data are ever written to localStorage.
  */
 async function setHttpOnlySession(token: string | null, refreshToken?: string | null) {
   if (typeof window === 'undefined') return;
@@ -46,33 +50,88 @@ async function setHttpOnlySession(token: string | null, refreshToken?: string | 
   }
 }
 
+// Clean up any legacy localStorage data on initial load
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem('app_auth_store');
+  } catch {
+    // Ignore storage errors in restricted contexts
+  }
+}
+
 export const useAuthStore = create<AuthState>()(
-  persist(
+  devtools(
     (set, get) => ({
       user: null,
+      profile: null,
       token: null,
       refreshToken: null,
       isAuthenticated: false,
+      isInitialized: false,
       isLoading: false,
       error: null,
+
+      initSession: async (): Promise<boolean> => {
+        if (typeof window === 'undefined') return false;
+        try {
+          // Verify session from server-side httpOnly cookies
+          const res = await fetch('/api/session', { method: 'GET' });
+          if (!res.ok) {
+            set({ isInitialized: true, isAuthenticated: false });
+            return false;
+          }
+
+          const data = await res.json();
+          if (data?.isAuthenticated && data?.token) {
+            set({
+              token: data.token,
+              refreshToken: data.refreshToken || null,
+              isAuthenticated: true,
+              isInitialized: true,
+            });
+
+            // Populate user profile in memory
+            await get().fetchProfile();
+            return true;
+          }
+
+          set({
+            user: null,
+            profile: null,
+            token: null,
+            refreshToken: null,
+            isAuthenticated: false,
+            isInitialized: true,
+          });
+          return false;
+        } catch (error) {
+          console.error('Failed to initialize session from cookies:', error);
+          set({ isInitialized: true, isAuthenticated: false });
+          return false;
+        }
+      },
 
       login: async (credentials: LoginCredentials) => {
         set({ isLoading: true, error: null });
         try {
           const session = await container.loginUseCase.execute(credentials);
           
-          // Securely set httpOnly cookies on server
+          // Securely set httpOnly cookies on server (Never in localStorage)
           await setHttpOnlySession(session.token, session.refreshToken);
 
-          // Store user details and session state in Zustand
+          // Store user details and session strictly in-memory in Zustand
           set({
             user: session.user,
             token: session.token,
             refreshToken: session.refreshToken,
             isAuthenticated: true,
+            isInitialized: true,
             isLoading: false,
             error: null,
           });
+
+          // Fetch latest profile into memory
+          get().fetchProfile().catch(() => {});
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : 'Login failed';
           set({ isLoading: false, error: message });
@@ -85,18 +144,22 @@ export const useAuthStore = create<AuthState>()(
         try {
           const session = await container.signupUseCase.execute(credentials);
           
-          // Securely set httpOnly cookies on server
+          // Securely set httpOnly cookies on server (Never in localStorage)
           await setHttpOnlySession(session.token, session.refreshToken);
 
-          // Store user details in Zustand
+          // Store user details in-memory in Zustand
           set({
             user: session.user,
             token: session.token,
             refreshToken: session.refreshToken,
             isAuthenticated: true,
+            isInitialized: true,
             isLoading: false,
             error: null,
           });
+
+          // Fetch latest profile into memory
+          get().fetchProfile().catch(() => {});
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : 'Registration failed';
           set({ isLoading: false, error: message });
@@ -104,8 +167,40 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      fetchProfile: async (): Promise<UserProfile | null> => {
+        try {
+          // Calls GET http://127.0.0.1:8000/api/profile/me with Bearer token header
+          const profile = await container.getProfileUseCase.execute();
+          set({
+            profile,
+            user: {
+              id: String(profile.id),
+              fullName: profile.name,
+              name: profile.name,
+              email: profile.email,
+              createdAt: profile.createdAt,
+            },
+          });
+          return profile;
+        } catch (error: unknown) {
+          console.error('Failed to fetch user profile:', error);
+          return null;
+        }
+      },
+
       refreshAuthToken: async (): Promise<string | null> => {
-        const currentRefreshToken = get().refreshToken;
+        let currentRefreshToken = get().refreshToken;
+        if (!currentRefreshToken) {
+          // Try to get from httpOnly cookie session
+          try {
+            const res = await fetch('/api/session');
+            const data = await res.json();
+            currentRefreshToken = data?.refreshToken || null;
+          } catch {
+            currentRefreshToken = null;
+          }
+        }
+
         if (!currentRefreshToken) {
           await get().logout();
           return null;
@@ -144,9 +239,10 @@ export const useAuthStore = create<AuthState>()(
           // Clear secure httpOnly cookies on server
           await setHttpOnlySession(null);
 
-          // Reset user details & authentication state in Zustand
+          // Reset strictly in-memory Zustand state
           set({
             user: null,
+            profile: null,
             token: null,
             refreshToken: null,
             isAuthenticated: false,
@@ -156,45 +252,26 @@ export const useAuthStore = create<AuthState>()(
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : 'Logout failed';
           set({ isLoading: false, error: message });
-          // Do NOT log out or wipe state on error so user is alerted via toast
+          // Do NOT wipe state on error so user is alerted via toast
           throw error;
         }
       },
 
       clearError: () => set({ error: null }),
-      
       setUser: (user) => set({ user, isAuthenticated: !!user }),
-
-      syncSessionCookies: async (token: string | null, refreshToken?: string | null) => {
-        await setHttpOnlySession(token, refreshToken);
-      },
+      setProfile: (profile) => set({ profile }),
     }),
     {
-      name: APP_CONSTANTS.STORAGE_KEYS.AUTH_STORE,
-      storage: createJSONStorage(() =>
-        typeof window !== 'undefined'
-          ? localStorage
-          : {
-              getItem: () => null,
-              setItem: () => null,
-              removeItem: () => null,
-            }
-      ),
-      // Persist user details and session state in Zustand
-      partialize: (state) => ({
-        user: state.user,
-        token: state.token,
-        refreshToken: state.refreshToken,
-        isAuthenticated: state.isAuthenticated,
-      }),
-      onRehydrateStorage: () => (state) => {
-        if (state?.token) {
-          setHttpOnlySession(state.token, state.refreshToken);
-        }
-      },
+      name: 'AuthStore',
+      enabled: process.env.NODE_ENV !== 'production',
     }
   )
 );
+
+// Expose store globally in browser console for Redux DevTools & debugging
+if (typeof window !== 'undefined') {
+  (window as unknown as { useAuthStore: typeof useAuthStore }).useAuthStore = useAuthStore;
+}
 
 // Connect HttpClient hooks to Zustand state
 httpClient.setTokenProvider(() => useAuthStore.getState().token);

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // Routes that require authentication
-const protectedRoutes = ['/dashboard', '/users'];
+const protectedRoutes = ['/dashboard', '/profile'];
 
 // Routes only accessible to guests / unauthenticated users
 const authRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'];
@@ -32,7 +32,7 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/dashboard/:path*',
-    '/users/:path*',
+    '/profile/:path*',
     '/login',
     '/signup',
     '/forgot-password',
