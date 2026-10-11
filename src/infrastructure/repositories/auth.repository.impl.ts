@@ -1,4 +1,8 @@
-import { AuthSession, User } from "@/domain/entities/auth.entity";
+import {
+  AuthSession,
+  SignupCredentials,
+  User,
+} from "@/domain/entities/auth.entity";
 import {
   ForgotPasswordResponse,
   IAuthRepository,
@@ -43,25 +47,20 @@ export class AuthRepositoryImpl implements IAuthRepository {
       "/auth/login",
       payload,
     );
-    const userDto = response.user || response.data?.user;
+    console.log("AuthRepositoryImpl login response:", response);
+    const userDto = response.user;
     return {
       user: toUser(userDto),
-      token:
-        response.access_token ||
-        response.token ||
-        response.data?.access_token ||
-        "",
-      refreshToken:
-        response.refresh_token ||
-        response.refreshToken ||
-        response.data?.refresh_token ||
-        "",
+      token: response.access_token,
+      refreshToken: response.refresh_token,
     };
   }
 
-  async signup(credentials: SignupRequestDTO): Promise<AuthSession> {
+  async signup(credentials: SignupCredentials): Promise<AuthSession> {
+    const name = credentials.name || credentials.fullName || "";
+
     const payload: SignupRequestDTO = {
-      name: credentials.name,
+      name,
       email: credentials.email,
       password: credentials.password,
     };
@@ -71,19 +70,11 @@ export class AuthRepositoryImpl implements IAuthRepository {
       "/auth/signup",
       payload,
     );
-    const userDto = response.data?.user;
+    const userDto = response.user;
     return {
       user: toUser(userDto),
-      token:
-        response.access_token ||
-        response.token ||
-        response.data?.access_token ||
-        "",
-      refreshToken:
-        response.refresh_token ||
-        response.refreshToken ||
-        response.data?.refresh_token ||
-        "",
+      token: response.access_token,
+      refreshToken: response.refresh_token,
     };
   }
 

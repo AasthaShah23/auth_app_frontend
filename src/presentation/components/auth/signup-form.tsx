@@ -50,6 +50,7 @@ export function SignupForm() {
     setIsLoading(true);
     try {
       await signup({
+        name: data.fullName,
         fullName: data.fullName,
         email: data.email,
         password: data.password,
@@ -70,6 +71,7 @@ export function SignupForm() {
       // Show error toast notification
       toast.error("Sign Up Failed", {
         description: message,
+        className: "whitespace-pre-line",
       });
     } finally {
       setIsLoading(false);

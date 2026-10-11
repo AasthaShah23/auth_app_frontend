@@ -4,7 +4,7 @@ export interface LoginRequestDTO {
 }
 
 export interface SignupRequestDTO {
-  name?: string;
+  name: string;
   email: string;
   password: string;
 }
@@ -45,25 +45,9 @@ export interface UserDTO {
 }
 
 export interface AuthResponseDTO {
-  access_token?: string;
-  token?: string;
-  refresh_token?: string;
-  refreshToken?: string;
-  token_type?: string;
-  role?: string;
-  is_admin?: boolean;
-  isAdmin?: boolean;
-  user?: UserDTO;
-  data?: {
-    token?: string;
-    access_token?: string;
-    refresh_token?: string;
-    refreshToken?: string;
-    role?: string;
-    is_admin?: boolean;
-    isAdmin?: boolean;
-    user?: UserDTO;
-  };
+  access_token: string;
+  refresh_token: string;
+  user: UserDTO;
   message?: string;
 }
 

@@ -113,8 +113,23 @@ export class HttpClient {
         if (data) {
           if (typeof data.detail === 'string') {
             message = data.detail;
-          } else if (Array.isArray(data.detail) && data.detail[0]?.msg) {
-            message = data.detail[0].msg;
+          } else if (Array.isArray(data.detail)) {
+            const formattedErrors = data.detail
+              .map((err: { loc?: (string | number)[]; msg?: string }) => {
+                const field = Array.isArray(err.loc) ? err.loc[err.loc.length - 1] : '';
+                let msg = err.msg || 'Invalid value';
+                msg = msg.replace(/^Value error,\s*/i, '');
+                if (field && field !== 'body') {
+                  const fieldName = String(field).charAt(0).toUpperCase() + String(field).slice(1).replace(/_/g, ' ');
+                  return `${fieldName}: ${msg}`;
+                }
+                return msg;
+              })
+              .filter(Boolean);
+
+            if (formattedErrors.length > 0) {
+              message = formattedErrors.join('\n');
+            }
           } else if (data.message) {
             message = data.message;
           } else if (data.error) {

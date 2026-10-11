@@ -45,6 +45,7 @@ export function ForgotPasswordForm() {
         err instanceof Error ? err.message : "Failed to send reset link. Please try again.";
       toast.error("Request Failed", {
         description: message,
+        className: "whitespace-pre-line",
       });
     } finally {
       setIsLoading(false);

@@ -68,6 +68,7 @@ export function LoginForm() {
         err instanceof Error ? err.message : "Invalid email or password. Please try again.";
       toast.error("Login Failed", {
         description: message,
+        className: "whitespace-pre-line",
       });
     } finally {
       setIsLoading(false);
