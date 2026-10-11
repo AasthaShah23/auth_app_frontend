@@ -17,7 +17,6 @@ import {
   ForgotPasswordRequestDTO,
   GenericMessageResponseDTO,
   LoginRequestDTO,
-  LogoutRequestDTO,
   RefreshResponseDTO,
   ResetPasswordRequestDTO,
   SignupRequestDTO,
@@ -184,9 +183,7 @@ export class AuthRepositoryImpl implements IAuthRepository {
     );
     return {
       message:
-        response?.message ||
-        response?.detail ||
-        "Email verified successfully.",
+        response?.message || response?.detail || "Email verified successfully.",
       success: true,
     };
   }

@@ -1,26 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
 import { httpClient } from "@/infrastructure/api/http-client";
-import {
-  Users,
-  Shield,
-  UserCheck,
-  Search,
-  RotateCw,
-  Sparkles,
-  CheckCircle2,
-  Mail,
-  Calendar,
-} from "lucide-react";
+import { Users, Shield, UserCheck, Search, Mail, Calendar } from "lucide-react";
 
 export interface UserItem {
   id: string | number;
@@ -33,51 +15,8 @@ export interface UserItem {
   created_at?: string;
 }
 
-const defaultAdminUsers: UserItem[] = [
-  {
-    id: "1",
-    name: "Aastha Shah",
-    email: "aastha@example.com",
-    role: "admin",
-    isActive: true,
-    createdAt: "2026-10-06",
-  },
-  {
-    id: "2",
-    name: "Alex Morgan",
-    email: "alex.morgan@example.com",
-    role: "admin",
-    isActive: true,
-    createdAt: "2026-10-01",
-  },
-  {
-    id: "3",
-    name: "Sarah Chen",
-    email: "sarah.chen@example.com",
-    role: "user",
-    isActive: true,
-    createdAt: "2026-10-05",
-  },
-  {
-    id: "4",
-    name: "Michael Scott",
-    email: "michael.scott@example.com",
-    role: "user",
-    isActive: true,
-    createdAt: "2026-10-08",
-  },
-  {
-    id: "5",
-    name: "Emma Watson",
-    email: "emma.watson@example.com",
-    role: "user",
-    isActive: false,
-    createdAt: "2026-10-09",
-  },
-];
-
 export function AdminDashboard() {
-  const [users, setUsers] = useState<UserItem[]>(defaultAdminUsers);
+  const [users, setUsers] = useState<UserItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -87,11 +26,15 @@ export function AdminDashboard() {
       // Primary: backend admin endpoint GET /api/admin/users
       let list: UserItem[] | undefined;
       try {
-        const response = await httpClient.get<{ total: number; users: UserItem[] } | UserItem[]>("/admin/users");
+        const response = await httpClient.get<
+          { total: number; users: UserItem[] } | UserItem[]
+        >("/admin/users");
         list = Array.isArray(response) ? response : response?.users;
       } catch {
         // Fallback: GET /api/users
-        const response = await httpClient.get<UserItem[] | { users: UserItem[] }>("/users");
+        const response = await httpClient.get<
+          UserItem[] | { users: UserItem[] }
+        >("/users");
         list = Array.isArray(response) ? response : response?.users;
       }
 
@@ -117,10 +60,6 @@ export function AdminDashboard() {
   });
 
   const totalUsers = users.length;
-  const adminCount = users.filter(
-    (u) => (u.role || "").toLowerCase() === "admin",
-  ).length;
-  const regularCount = totalUsers - adminCount;
 
   return (
     <div className="space-y-6">
@@ -135,32 +74,6 @@ export function AdminDashboard() {
           </div>
           <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
             <Users className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-zinc-200/80 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-zinc-500">Administrators</p>
-            <p className="text-2xl font-bold text-indigo-600 mt-1">
-              {adminCount}
-            </p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-            <Shield className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-zinc-200/80 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-zinc-500">
-              Standard Members
-            </p>
-            <p className="text-2xl font-bold text-emerald-600 mt-1">
-              {regularCount}
-            </p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <UserCheck className="w-5 h-5" />
           </div>
         </div>
       </div>
@@ -207,7 +120,7 @@ export function AdminDashboard() {
               {filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="py-8 text-center text-zinc-400">
-                    No users found matching &quot;{searchTerm}&quot;
+                    No users found
                   </td>
                 </tr>
               ) : (

@@ -8,7 +8,7 @@ import { UserDashboard } from "@/presentation/components/dashboard/user-dashboar
 export default function DashboardPage() {
   const { user, profile } = useAuthStore();
 
-  const isAdmin = (user?.role || "").toLowerCase() === "admin";
+  const isAdmin = (user?.role || profile?.role || "").toLowerCase() === "admin";
   const isEmailVerified = Boolean(profile?.is_email_verified);
 
   return isAdmin ? (

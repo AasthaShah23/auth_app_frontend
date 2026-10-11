@@ -1,5 +1,5 @@
-import { AuthSession } from "../entities/auth.entity";
-import { IAuthRepository } from "../repositories/auth.repository";
+import { AuthSession } from "../../entities/auth.entity";
+import { IAuthRepository } from "../../repositories/auth.repository";
 
 export class RefreshTokenUseCase {
   constructor(private readonly authRepository: IAuthRepository) {}

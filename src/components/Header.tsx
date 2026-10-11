@@ -5,16 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/presentation/store/auth.store";
-import { LogOut, Loader2, Shield } from "lucide-react";
+import { LogOut, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Header: React.FC = () => {
   const router = useRouter();
   const { user, profile, isAuthenticated, logout } = useAuthStore();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-  const displayName = profile?.name || user?.name || "User";
-  const isAdmin = (user?.role || "").toLowerCase() === "admin";
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
