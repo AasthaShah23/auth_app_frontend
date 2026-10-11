@@ -1,5 +1,5 @@
-import { AuthSession, SignupCredentials } from "../entities/auth.entity";
-import { IAuthRepository } from "../repositories/auth.repository";
+import { AuthSession, SignupCredentials } from "../../entities/auth.entity";
+import { IAuthRepository } from "../../repositories/auth.repository";
 
 export class SignupUseCase {
   constructor(private readonly authRepository: IAuthRepository) {}
