@@ -9,6 +9,7 @@ export interface AuthSession {
   user: User;
   token: string;
   refreshToken: string;
+  message?: string;
 }
 
 export interface LoginCredentials {
@@ -17,8 +18,7 @@ export interface LoginCredentials {
 }
 
 export interface SignupCredentials {
-  name?: string;
-  fullName?: string;
+  name: string;
   email: string;
   password: string;
 }

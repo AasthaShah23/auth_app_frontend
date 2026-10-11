@@ -6,14 +6,10 @@ import { AdminDashboard } from "@/presentation/components/dashboard/admin-dashbo
 import { UserDashboard } from "@/presentation/components/dashboard/user-dashboard";
 
 export default function DashboardPage() {
-  const { user, profile, fetchProfile } = useAuthStore();
-
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
+  const { user, profile } = useAuthStore();
 
   const isAdmin = (user?.role || "").toLowerCase() === "admin";
-  const isEmailVerified = profile?.is_email_verified !== false;
+  const isEmailVerified = Boolean(profile?.is_email_verified);
 
   return isAdmin ? (
     <AdminDashboard />

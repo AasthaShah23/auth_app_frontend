@@ -35,7 +35,15 @@ export default function ProfilePage() {
     fetchProfile,
     resendVerificationEmail,
   } = useAuthStore();
-  const isEmailVerified = profile ? profile.is_email_verified : true;
+
+  const isEmailVerified = Boolean(profile?.is_email_verified);
+  const name = profile?.name || user?.name || "User";
+  const email = profile?.email || user?.email || "";
+  const accountCreated = formatFullDate(profile?.created_at);
+  const accountStatus =
+    isEmailVerified && profile?.is_active ? "Active" : "Inactive";
+  const messageText =
+    "Please verify your email address to view profile details.";
 
   const [isResending, setIsResending] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
@@ -68,7 +76,7 @@ export default function ProfilePage() {
   const handleCheckVerification = async () => {
     setIsCheckingStatus(true);
     try {
-      const updated = await fetchProfile();
+      const updated = await fetchProfile(true);
       if (updated && updated.is_email_verified !== false) {
         toast.success("Email Verified!", {
           description: "Your email address has been verified successfully.",
@@ -83,15 +91,6 @@ export default function ProfilePage() {
       setIsCheckingStatus(false);
     }
   };
-
-  const name = profile?.name || "User";
-  const email = profile?.email || user?.email;
-  const accountCreated = formatFullDate(profile?.created_at);
-  const accountStatus =
-    isEmailVerified && profile?.is_active ? "Active" : "Inactive";
-
-  const messageText =
-    "Please verify your email address to view profile details.";
 
   return (
     <div className="max-w-xl mx-auto py-8">

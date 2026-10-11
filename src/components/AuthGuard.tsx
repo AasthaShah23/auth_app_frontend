@@ -14,6 +14,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   const pathname = usePathname();
   const { user, isAuthenticated, isLoading, checkAuth } = useAuthStore();
   const [hasChecked, setHasChecked] = useState(false);
+  const isCheckingRef = React.useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -23,6 +24,11 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
         setHasChecked(true);
         return;
       }
+
+      if (isCheckingRef.current) {
+        return;
+      }
+      isCheckingRef.current = true;
 
       const authed = await checkAuth();
       if (active) {

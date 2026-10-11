@@ -57,10 +57,8 @@ export class AuthRepositoryImpl implements IAuthRepository {
   }
 
   async signup(credentials: SignupCredentials): Promise<AuthSession> {
-    const name = credentials.name || credentials.fullName || "";
-
     const payload: SignupRequestDTO = {
-      name,
+      name: credentials.name,
       email: credentials.email,
       password: credentials.password,
     };
@@ -75,6 +73,7 @@ export class AuthRepositoryImpl implements IAuthRepository {
       user: toUser(userDto),
       token: response.access_token,
       refreshToken: response.refresh_token,
+      message: response.message,
     };
   }
 
@@ -179,37 +178,16 @@ export class AuthRepositoryImpl implements IAuthRepository {
   }
 
   async verifyEmail(token: string): Promise<VerifyEmailResponse> {
-    try {
-      // Primary: GET /auth/verify-email?token=...
-      const response = await this.httpClient.get<GenericMessageResponseDTO>(
-        `/auth/verify-email?token=${encodeURIComponent(token)}`,
-        { skipAuthRefresh: true },
-      );
-      return {
-        message:
-          response?.message ||
-          response?.detail ||
-          "Email verified successfully.",
-        success: true,
-      };
-    } catch (err: unknown) {
-      // Fallback: POST /auth/verify-email with payload { token }
-      try {
-        const response = await this.httpClient.post<GenericMessageResponseDTO>(
-          "/auth/verify-email",
-          { token },
-          { skipAuthRefresh: true },
-        );
-        return {
-          message:
-            response?.message ||
-            response?.detail ||
-            "Email verified successfully.",
-          success: true,
-        };
-      } catch {
-        throw err;
-      }
-    }
+    const response = await this.httpClient.get<GenericMessageResponseDTO>(
+      `/auth/verify-email?token=${encodeURIComponent(token)}`,
+      { skipAuthRefresh: true },
+    );
+    return {
+      message:
+        response?.message ||
+        response?.detail ||
+        "Email verified successfully.",
+      success: true,
+    };
   }
 }

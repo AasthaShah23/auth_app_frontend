@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import React, { useEffect, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/presentation/store/auth.store";
 import { Button } from "@/components/ui/button";
@@ -9,80 +9,98 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
-  MailCheck,
   ArrowRight,
   Send,
   Home,
   LogIn,
+  Mail,
 } from "lucide-react";
 import { toast } from "sonner";
 
 export function VerifyEmailView() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams?.get("token") || "";
 
-  const { verifyEmail, resendVerificationEmail, user, token: authToken } = useAuthStore();
-  const isAuthenticated = Boolean(user || authToken);
+  const { verifyEmail, resendVerificationEmail, user, isAuthenticated } =
+    useAuthStore();
 
   const [status, setStatus] = useState<"loading" | "success" | "error">(
-    token ? "loading" : "error"
+    token ? "loading" : "error",
   );
-  const [errorMessage, setErrorMessage] = useState(
-    token ? "" : "No verification token found in the URL. Please verify your link."
+  const [responseMessage, setResponseMessage] = useState(
+    token
+      ? ""
+      : "No verification token found in the URL. Please verify your link.",
   );
+  const [resendEmail, setResendEmail] = useState(user?.email || "");
   const [isResending, setIsResending] = useState(false);
+
+  // Ref to strictly guarantee the verify-token API is called ONLY ONCE
+  const verifiedTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!token) {
       setStatus("error");
+      setResponseMessage(
+        "No verification token found in the URL. Please check your verification link.",
+      );
       return;
     }
 
-    let isMounted = true;
+    // Prevent duplicate calls (e.g. React Strict Mode in development)
+    if (verifiedTokenRef.current === token) {
+      return;
+    }
+    verifiedTokenRef.current = token;
 
     async function handleVerify() {
       try {
         const msg = await verifyEmail(token);
-        if (isMounted) {
-          setStatus("success");
-          toast.success("Email Verified", {
-            description: msg || "Your email address has been verified successfully.",
-          });
-        }
+        setStatus("success");
+        setResponseMessage(msg || "Email has been successfully verified.");
+        toast.success("Email Verified", {
+          description:
+            msg || "Your email address has been verified successfully.",
+        });
       } catch (err: unknown) {
-        if (isMounted) {
-          setStatus("error");
-          const msg =
-            err instanceof Error
-              ? err.message
-              : "Verification token is invalid or has expired (24-hour limit).";
-          setErrorMessage(msg);
-          toast.error("Verification Failed", {
-            description: msg,
-          });
-        }
+        setStatus("error");
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "Invalid or expired verification token.";
+        setResponseMessage(msg);
+        toast.error("Verification Failed", {
+          description: msg,
+        });
       }
     }
 
     handleVerify();
-
-    return () => {
-      isMounted = false;
-    };
   }, [token, verifyEmail]);
 
-  const handleResend = async () => {
+  const handleResend = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const targetEmail = resendEmail.trim() || user?.email || "";
+    if (!targetEmail) {
+      toast.error("Email Required", {
+        description:
+          "Please enter your email address to receive a new verification link.",
+      });
+      return;
+    }
+
     setIsResending(true);
     try {
-      const emailToSend = user?.email || "";
-      const msg = await resendVerificationEmail(emailToSend);
+      const msg = await resendVerificationEmail(targetEmail);
       toast.success("Verification Link Sent", {
-        description: msg || "Please check your inbox for the new verification link.",
+        description:
+          msg || "Please check your inbox for the new verification link.",
       });
     } catch (err: unknown) {
       const msg =
-        err instanceof Error ? err.message : "Failed to resend verification email.";
+        err instanceof Error
+          ? err.message
+          : "Failed to resend verification email.";
       toast.error("Resend Failed", { description: msg });
     } finally {
       setIsResending(false);
@@ -107,14 +125,15 @@ export function VerifyEmailView() {
               Verifying Email
             </h2>
             <p className="text-xs text-zinc-500 max-w-[280px]">
-              Please wait while we validate your verification token with our server...
+              Please wait while we validate your verification token with our
+              server...
             </p>
           </div>
         )}
 
         {/* Success State */}
         {status === "success" && (
-          <div className="space-y-4 py-2 animate-in fade-in zoom-in-95 duration-200">
+          <div className="space-y-4 py-2 animate-in fade-in zoom-in-95 duration-200 w-full">
             <div className="w-20 h-20 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center mx-auto text-emerald-600 shadow-inner">
               <CheckCircle2 className="w-10 h-10" />
             </div>
@@ -122,8 +141,8 @@ export function VerifyEmailView() {
               <h2 className="text-xl font-bold tracking-tight text-zinc-900">
                 Email Verified Successfully!
               </h2>
-              <p className="text-xs text-zinc-500 mt-2 max-w-[300px]">
-                Your email address has been verified. You now have full access to your profile and all dashboard features.
+              <p className="text-xs text-zinc-600 mt-2 max-w-[300px] mx-auto font-medium">
+                {responseMessage}
               </p>
             </div>
 
@@ -143,30 +162,19 @@ export function VerifyEmailView() {
                   asChild
                   className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-11 text-xs font-semibold shadow-sm"
                 >
-                  <Link href="/login">
-                    <LogIn className="w-4 h-4 mr-1.5" />
-                    <span>Proceed to Login</span>
+                  <Link href="/dashboard">
+                    <Home className="w-3.5 h-3.5 mr-1.5" />
+                    <span>Go to Dashboard</span>
                   </Link>
                 </Button>
               )}
-
-              <Button
-                asChild
-                variant="outline"
-                className="w-full rounded-xl h-10 text-xs border-zinc-200"
-              >
-                <Link href="/dashboard">
-                  <Home className="w-3.5 h-3.5 mr-1.5" />
-                  <span>Go to Dashboard</span>
-                </Link>
-              </Button>
             </div>
           </div>
         )}
 
         {/* Error / Expired State */}
         {status === "error" && (
-          <div className="space-y-4 py-2 animate-in fade-in zoom-in-95 duration-200">
+          <div className="space-y-4 py-2 animate-in fade-in zoom-in-95 duration-200 w-full">
             <div className="w-20 h-20 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center mx-auto text-rose-600 shadow-inner">
               <XCircle className="w-10 h-10" />
             </div>
@@ -174,43 +182,70 @@ export function VerifyEmailView() {
               <h2 className="text-xl font-bold tracking-tight text-zinc-900">
                 Verification Failed
               </h2>
-              <p className="text-xs text-rose-600 font-medium mt-2 max-w-[300px]">
-                {errorMessage}
+              <p className="text-xs text-rose-600 font-medium mt-2 max-w-[320px] mx-auto leading-relaxed">
+                {responseMessage}
               </p>
-              <p className="text-[11px] text-zinc-400 mt-1 max-w-[280px]">
-                Verification tokens expire after 24 hours and can only be used once.
+              <p className="text-[11px] text-zinc-400 mt-1 max-w-[280px] mx-auto">
+                Verification tokens expire after 24 hours and can only be used
+                once.
               </p>
             </div>
 
-            <div className="pt-4 flex flex-col gap-2.5 w-full">
-              <Button
-                onClick={handleResend}
-                disabled={isResending}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-11 text-xs font-semibold shadow-sm"
+            <div className="pt-3 w-full">
+              <form
+                onSubmit={handleResend}
+                className="space-y-3 w-full text-left"
               >
-                {isResending ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
-                    Sending new link...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-3.5 h-3.5 mr-1.5" />
-                    Resend Verification Link
-                  </>
+                {!user?.email && (
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-zinc-600">
+                      Email Address
+                    </label>
+                    <div className="relative flex items-center border border-zinc-200 rounded-xl px-3 py-2 bg-zinc-50/50 focus-within:border-indigo-600 focus-within:bg-white transition-colors">
+                      <Mail className="w-4 h-4 text-zinc-400 mr-2 shrink-0" />
+                      <input
+                        type="email"
+                        required
+                        placeholder="Enter your email"
+                        value={resendEmail}
+                        onChange={(e) => setResendEmail(e.target.value)}
+                        className="w-full bg-transparent border-0 p-0 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none"
+                      />
+                    </div>
+                  </div>
                 )}
-              </Button>
 
-              <Button
-                asChild
-                variant="outline"
-                className="w-full rounded-xl h-10 text-xs border-zinc-200"
-              >
-                <Link href="/login">
-                  <LogIn className="w-3.5 h-3.5 mr-1.5" />
-                  <span>Back to Login</span>
-                </Link>
-              </Button>
+                <Button
+                  type="submit"
+                  disabled={isResending}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-11 text-xs font-semibold shadow-sm"
+                >
+                  {isResending ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                      Sending new link...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5 mr-1.5" />
+                      Resend Verification Link
+                    </>
+                  )}
+                </Button>
+              </form>
+
+              <div className="pt-2">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full rounded-xl h-10 text-xs border-zinc-200"
+                >
+                  <Link href="/login">
+                    <LogIn className="w-3.5 h-3.5 mr-1.5" />
+                    <span>Back to Login</span>
+                  </Link>
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -218,4 +253,3 @@ export function VerifyEmailView() {
     </div>
   );
 }
-
