@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { Metadata } from "next";
-import { ResetPasswordForm } from "@/presentation/components/modules/auth/reset-password-form";
+import { ResetPasswordForm } from "@/presentation/components/auth/reset-password-form";
 import { Loader2 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -31,4 +31,3 @@ export default function ResetPasswordPage() {
     </main>
   );
 }
-

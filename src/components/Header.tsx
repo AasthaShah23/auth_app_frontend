@@ -5,16 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/presentation/store/auth.store";
-import { LogOut, Loader2, User as UserIcon } from "lucide-react";
+import { LogOut, Loader2, Shield } from "lucide-react";
 import { toast } from "sonner";
 
 export const Header: React.FC = () => {
   const router = useRouter();
-  // Extract user details and authentication state directly from Zustand global store
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, profile, isAuthenticated, logout } = useAuthStore();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const displayName = user?.name || user?.email || "User";
+  const displayName = profile?.name || user?.name || "User";
+  const isAdmin = (user?.role || "").toLowerCase() === "admin";
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -24,11 +24,12 @@ export const Header: React.FC = () => {
       router.push("/login");
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : "Failed to connect to backend for logout.";
+        err instanceof Error
+          ? err.message
+          : "Failed to connect to backend for logout.";
       toast.error("Logout Failed", {
         description: message,
       });
-      // Do NOT redirect or clear local state on error
     } finally {
       setIsLoggingOut(false);
     }
@@ -40,9 +41,9 @@ export const Header: React.FC = () => {
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="font-bold text-xl tracking-tight bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent"
+            className="font-bold text-xl tracking-tight bg-gradient-to-r bg-clip-text text-black"
           >
-            Tong Garden Assessment
+            AuthApp
           </Link>
         </div>
 
@@ -54,24 +55,14 @@ export const Header: React.FC = () => {
             Dashboard
           </Link>
           <Link
-            href="/users"
+            href="/profile"
             className="text-zinc-600 hover:text-zinc-900 transition-colors"
           >
-            Users
+            Profile
           </Link>
 
-          {isAuthenticated ? (
+          {isAuthenticated && (
             <div className="flex items-center gap-3 pl-2 border-l border-zinc-200">
-              {/* User badge showing details taken directly from Zustand */}
-              <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-zinc-100 border border-zinc-200/80 text-xs font-medium text-zinc-700">
-                <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
-                <span className="max-w-[120px] truncate" title={displayName}>
-                  {displayName}
-                </span>
-              </div>
-
               <Button
                 variant="outline"
                 size="sm"
@@ -90,15 +81,6 @@ export const Header: React.FC = () => {
                     Logout
                   </>
                 )}
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Button asChild variant="outline" size="sm">
-                <Link href="/login">Login</Link>
-              </Button>
-              <Button asChild size="sm">
-                <Link href="/signup">Sign Up</Link>
               </Button>
             </div>
           )}

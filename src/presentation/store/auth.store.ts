@@ -1,207 +1,295 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { User, LoginCredentials, SignupCredentials } from '@/domain/entities/auth.entity';
-import { container } from '@/infrastructure/di/container';
-import { httpClient } from '@/infrastructure/api/http-client';
-import { APP_CONSTANTS } from '@/shared/app.constants';
+import { create } from "zustand";
+import { devtools } from "zustand/middleware";
+import {
+  User,
+  AuthSession,
+  LoginCredentials,
+  SignupCredentials,
+} from "@/domain/entities/auth.entity";
+import { ProfileDTO } from "@/infrastructure/dtos/profile.dto";
+import { container } from "@/infrastructure/di/container";
+import { httpClient } from "@/infrastructure/api/http-client";
 
 interface AuthState {
   user: User | null;
-  token: string | null;
-  refreshToken: string | null;
+  profile: ProfileDTO | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  error: string | null;
 
   // Actions
   login: (credentials: LoginCredentials) => Promise<void>;
-  signup: (credentials: SignupCredentials) => Promise<void>;
-  refreshAuthToken: () => Promise<string | null>;
+  signup: (credentials: SignupCredentials) => Promise<AuthSession>;
+  checkAuth: () => Promise<boolean>;
+  refreshAuthToken: () => Promise<boolean>;
+  fetchProfile: (force?: boolean) => Promise<ProfileDTO | null>;
+  resendVerificationEmail: (email?: string) => Promise<string>;
+  verifyEmail: (token: string) => Promise<string>;
   logout: () => Promise<void>;
-  clearError: () => void;
   setUser: (user: User | null) => void;
-  syncSessionCookies: (token: string | null, refreshToken?: string | null) => Promise<void>;
+  setProfile: (profile: ProfileDTO | null) => void;
 }
 
-/**
- * Sets or removes secure httpOnly cookies on the Next.js server side.
- * This prevents XSS attacks from accessing sensitive JWT tokens.
- */
-async function setHttpOnlySession(token: string | null, refreshToken?: string | null) {
-  if (typeof window === 'undefined') return;
-  try {
-    if (token) {
-      await fetch('/api/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, refreshToken }),
-      });
-    } else {
-      await fetch('/api/session', {
-        method: 'DELETE',
-      });
-    }
-  } catch (error) {
-    console.error('Error syncing httpOnly session cookie:', error);
-  }
-}
+// In-flight promise caching to eliminate redundant concurrent calls to /me
+let activeCheckAuthPromise: Promise<boolean> | null = null;
+let activeFetchProfilePromise: Promise<ProfileDTO | null> | null = null;
 
 export const useAuthStore = create<AuthState>()(
-  persist(
+  devtools(
     (set, get) => ({
       user: null,
-      token: null,
-      refreshToken: null,
+      profile: null,
       isAuthenticated: false,
-      isLoading: false,
-      error: null,
+      isLoading: true,
 
       login: async (credentials: LoginCredentials) => {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true });
         try {
           const session = await container.loginUseCase.execute(credentials);
-          
-          // Securely set httpOnly cookies on server
-          await setHttpOnlySession(session.token, session.refreshToken);
-
-          // Store user details and session state in Zustand
           set({
             user: session.user,
-            token: session.token,
-            refreshToken: session.refreshToken,
             isAuthenticated: true,
             isLoading: false,
-            error: null,
           });
-        } catch (error: unknown) {
-          const message = error instanceof Error ? error.message : 'Login failed';
-          set({ isLoading: false, error: message });
+
+          // Fetch profile details once on login
+          get()
+            .fetchProfile(true)
+            .catch(() => {});
+        } catch (error) {
+          set({
+            user: null,
+            profile: null,
+            isAuthenticated: false,
+            isLoading: false,
+          });
           throw error;
         }
       },
 
       signup: async (credentials: SignupCredentials) => {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true });
         try {
           const session = await container.signupUseCase.execute(credentials);
-          
-          // Securely set httpOnly cookies on server
-          await setHttpOnlySession(session.token, session.refreshToken);
-
-          // Store user details in Zustand
           set({
             user: session.user,
-            token: session.token,
-            refreshToken: session.refreshToken,
             isAuthenticated: true,
             isLoading: false,
-            error: null,
           });
-        } catch (error: unknown) {
-          const message = error instanceof Error ? error.message : 'Registration failed';
-          set({ isLoading: false, error: message });
+
+          // Fetch profile details once on signup
+          get()
+            .fetchProfile(true)
+            .catch(() => {});
+          return session;
+        } catch (error) {
+          set({
+            user: null,
+            profile: null,
+            isAuthenticated: false,
+            isLoading: false,
+          });
           throw error;
         }
       },
 
-      refreshAuthToken: async (): Promise<string | null> => {
-        const currentRefreshToken = get().refreshToken;
-        if (!currentRefreshToken) {
-          await get().logout();
-          return null;
+      fetchProfile: async (force = false): Promise<ProfileDTO | null> => {
+        // Return existing profile if already cached and not forced
+        if (!force && get().profile) {
+          return get().profile;
         }
 
-        try {
-          const result = await container.refreshTokenUseCase.execute(currentRefreshToken);
-          if (result.token) {
-            // Update secure httpOnly cookies
-            await setHttpOnlySession(result.token, result.refreshToken || currentRefreshToken);
+        // Return in-flight request if already loading
+        if (activeFetchProfilePromise) {
+          return activeFetchProfilePromise;
+        }
 
-            set({
-              token: result.token,
-              refreshToken: result.refreshToken || currentRefreshToken,
-              isAuthenticated: true,
-            });
-            return result.token;
+        activeFetchProfilePromise = (async () => {
+          try {
+            const profile = await container.getProfileUseCase.execute();
+            if (profile) {
+              set((state) => ({
+                profile,
+                user: state.user || {
+                  id: String(profile.id),
+                  name: profile.name,
+                  email: profile.email,
+                  role: "user",
+                },
+              }));
+            }
+            return profile;
+          } catch {
+            // If backend returns 403 (unverified email), ensure profile reflects is_email_verified = false
+            set((state) => ({
+              profile: {
+                id: Number(state.user?.id) || 0,
+                name: state.user?.name || "User",
+                email: state.user?.email || "",
+                is_email_verified: false,
+                is_active: true,
+                created_at: state.profile?.created_at || "",
+              },
+            }));
+            return null;
+          } finally {
+            activeFetchProfilePromise = null;
           }
-          await get().logout();
-          return null;
-        } catch {
-          await get().logout();
-          return null;
+        })();
+
+        return activeFetchProfilePromise;
+      },
+
+      checkAuth: async (): Promise<boolean> => {
+        // If already authenticated and profile loaded, no need to call /me again
+        if (get().isAuthenticated && get().user && get().profile) {
+          return true;
         }
+
+        // Return in-flight request if already checking session
+        if (activeCheckAuthPromise) {
+          return activeCheckAuthPromise;
+        }
+
+        activeCheckAuthPromise = (async () => {
+          set({ isLoading: true });
+          try {
+            // 1. Primary session endpoint: GET /api/profile/me using HttpOnly cookie (ONCE on refresh)
+            const profile = await container.getProfileUseCase.execute();
+            if (profile) {
+              const user: User = {
+                id: String(profile.id),
+                name: profile.name,
+                email: profile.email,
+                role: (get().user?.role || "user").toLowerCase(),
+              };
+              set({
+                user,
+                profile,
+                isAuthenticated: true,
+                isLoading: false,
+              });
+              return true;
+            }
+          } catch {
+            // 2. Fallback: if access_token expired or user unverified, refresh session via HttpOnly refresh cookie
+            try {
+              const session = await container.refreshTokenUseCase.execute();
+              if (session?.user) {
+                set({
+                  user: session.user,
+                  isAuthenticated: true,
+                  isLoading: false,
+                });
+                return true;
+              }
+            } catch {
+              // Both session endpoints failed - session is invalid or expired
+            }
+          } finally {
+            activeCheckAuthPromise = null;
+          }
+
+          set({
+            user: null,
+            profile: null,
+            isAuthenticated: false,
+            isLoading: false,
+          });
+          return false;
+        })();
+
+        return activeCheckAuthPromise;
+      },
+
+      refreshAuthToken: async (): Promise<boolean> => {
+        try {
+          const session = await container.refreshTokenUseCase.execute();
+          if (session?.user) {
+            set((state) => ({
+              user: session.user || state.user,
+              isAuthenticated: true,
+            }));
+            return true;
+          }
+          return false;
+        } catch {
+          set({
+            user: null,
+            profile: null,
+            isAuthenticated: false,
+          });
+          return false;
+        }
+      },
+
+      resendVerificationEmail: async (email?: string): Promise<string> => {
+        const targetEmail =
+          email || get().user?.email || get().profile?.email || "";
+        if (!targetEmail) {
+          throw new Error("Please enter your email address to resend the verification link.");
+        }
+        const result =
+          await container.resendVerificationUseCase.execute(targetEmail);
+        return (
+          result.message || "Verification link sent to your email address."
+        );
+      },
+
+      verifyEmail: async (token: string): Promise<string> => {
+        const result = await container.verifyEmailUseCase.execute(token);
+        get()
+          .fetchProfile(true)
+          .catch(() => {});
+        return result.message || "Email verified successfully!";
       },
 
       logout: async () => {
-        const token = get().token;
-        const refreshToken = get().refreshToken;
-        set({ isLoading: true, error: null });
+        set({ isLoading: true });
         try {
-          if (refreshToken || token) {
-            await container.logoutUseCase.execute(refreshToken || undefined, token || undefined);
-          }
-
-          // Clear secure httpOnly cookies on server
-          await setHttpOnlySession(null);
-
-          // Reset user details & authentication state in Zustand
+          await container.logoutUseCase.execute();
+        } finally {
           set({
             user: null,
-            token: null,
-            refreshToken: null,
+            profile: null,
             isAuthenticated: false,
             isLoading: false,
-            error: null,
           });
-        } catch (error: unknown) {
-          const message = error instanceof Error ? error.message : 'Logout failed';
-          set({ isLoading: false, error: message });
-          // Do NOT log out or wipe state on error so user is alerted via toast
-          throw error;
         }
       },
 
-      clearError: () => set({ error: null }),
-      
-      setUser: (user) => set({ user, isAuthenticated: !!user }),
-
-      syncSessionCookies: async (token: string | null, refreshToken?: string | null) => {
-        await setHttpOnlySession(token, refreshToken);
-      },
+      setUser: (user) => set({ user, isAuthenticated: Boolean(user) }),
+      setProfile: (profile) => set({ profile }),
     }),
     {
-      name: APP_CONSTANTS.STORAGE_KEYS.AUTH_STORE,
-      storage: createJSONStorage(() =>
-        typeof window !== 'undefined'
-          ? localStorage
-          : {
-              getItem: () => null,
-              setItem: () => null,
-              removeItem: () => null,
-            }
-      ),
-      // Persist user details and session state in Zustand
-      partialize: (state) => ({
-        user: state.user,
-        token: state.token,
-        refreshToken: state.refreshToken,
-        isAuthenticated: state.isAuthenticated,
-      }),
-      onRehydrateStorage: () => (state) => {
-        if (state?.token) {
-          setHttpOnlySession(state.token, state.refreshToken);
-        }
-      },
+      name: "AuthStore",
+      enabled: process.env.NODE_ENV !== "production",
     }
   )
 );
 
-// Connect HttpClient hooks to Zustand state
-httpClient.setTokenProvider(() => useAuthStore.getState().token);
-httpClient.setTokenRefresher(async () => useAuthStore.getState().refreshAuthToken());
+// Expose store globally in browser console for debugging
+if (typeof window !== "undefined") {
+  (window as unknown as { useAuthStore: typeof useAuthStore }).useAuthStore =
+    useAuthStore;
+}
+
+// Connect HttpClient hooks to Zustand state and HttpOnly cookie refresh
+httpClient.setTokenProvider(() => null);
+httpClient.setTokenRefresher(async () =>
+  useAuthStore.getState().refreshAuthToken()
+);
 httpClient.setOnUnauthorized(() => {
   useAuthStore.getState().logout();
-  if (typeof window !== 'undefined') {
-    window.location.href = '/login';
+  if (typeof window !== "undefined") {
+    const path = window.location.pathname;
+    if (
+      path !== "/login" &&
+      path !== "/signup" &&
+      path !== "/forgot-password" &&
+      path !== "/reset-password" &&
+      path !== "/verify-email"
+    ) {
+      window.location.href = `/login?redirect=${encodeURIComponent(path)}`;
+    }
   }
 });

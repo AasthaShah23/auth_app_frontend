@@ -1,22 +1,15 @@
 export interface User {
   id: string;
-  fullName: string;
-  name?: string;
+  name: string;
   email: string;
-  role?: string;
-  createdAt?: string;
+  role: string;
 }
 
 export interface AuthSession {
   user: User;
   token: string;
   refreshToken: string;
-  expiresIn?: number;
-}
-
-export interface RefreshTokenResult {
-  token: string;
-  refreshToken?: string;
+  message?: string;
 }
 
 export interface LoginCredentials {
@@ -25,7 +18,7 @@ export interface LoginCredentials {
 }
 
 export interface SignupCredentials {
-  fullName: string;
+  name: string;
   email: string;
   password: string;
 }

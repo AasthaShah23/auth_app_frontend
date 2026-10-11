@@ -1,6 +1,6 @@
 import React from "react";
-import { Header } from "@/components/layouts/Header";
-import { AuthGuard } from "@/components/auth/AuthGuard";
+import { Header } from "@/components/Header";
+import { AuthGuard } from "@/components/AuthGuard";
 
 export default function DashboardLayout({
   children,

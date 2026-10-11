@@ -19,7 +19,8 @@ export const signupSchema = z
     fullName: z
       .string()
       .min(1, "Full name is required")
-      .min(2, "Name must be at least 2 characters"),
+      .min(2, "Full name must be at least 2 characters"),
+    name: z.string().optional(),
     email: z
       .string()
       .min(1, "Email is required")
@@ -27,13 +28,21 @@ export const signupSchema = z
     password: z
       .string()
       .min(1, "Password is required")
-      .min(6, "Password must be at least 6 characters"),
-    confirmPassword: z
-      .string()
-      .min(1, "Please confirm your password"),
+      .min(8, "Password must be at least 8 characters")
+      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+      .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+      .regex(/\d/, "Password must contain at least one digit")
+      .regex(
+        /[!@#$%^&*(),.?":{}|<>\-_=+\\|/[\]~`]/,
+        "Password must contain at least one special character"
+      ),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
     terms: z
       .boolean()
-      .refine((val) => val === true, "You must accept the terms and conditions"),
+      .refine(
+        (val) => val === true,
+        "You must accept the terms and conditions",
+      ),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -57,9 +66,7 @@ export const resetPasswordSchema = z
       .string()
       .min(1, "New password is required")
       .min(6, "Password must be at least 6 characters"),
-    confirmPassword: z
-      .string()
-      .min(1, "Please confirm your new password"),
+    confirmPassword: z.string().min(1, "Please confirm your new password"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",

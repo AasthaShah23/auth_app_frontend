@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { Metadata } from "next";
-import { LoginForm } from "@/presentation/components/modules/auth/login-form";
+import { LoginForm } from "@/presentation/components/auth/login-form";
 import { Loader2 } from "lucide-react";
 
 export const metadata: Metadata = {

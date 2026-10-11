@@ -9,7 +9,7 @@ export interface HttpRequestOptions extends RequestInit {
 }
 
 export type TokenProvider = () => string | null;
-export type TokenRefresher = () => Promise<string | null>;
+export type TokenRefresher = () => Promise<boolean | string | null>;
 export type UnauthorizedHandler = () => void;
 
 export class HttpClient {
@@ -18,7 +18,7 @@ export class HttpClient {
   private tokenRefresher: TokenRefresher | null = null;
   private onUnauthorized: UnauthorizedHandler | null = null;
   private isRefreshing = false;
-  private refreshPromise: Promise<string | null> | null = null;
+  private refreshPromise: Promise<boolean | string | null> | null = null;
 
   constructor(baseUrl: string = env.apiBaseUrl) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
@@ -83,6 +83,7 @@ export class HttpClient {
 
     try {
       const response = await fetch(url, {
+        credentials: 'include',
         ...options,
         headers,
       });
@@ -90,12 +91,12 @@ export class HttpClient {
       // Handle 401 Unauthorized with Automatic Token Refresh & Retry
       if (response.status === 401 && !options.skipAuthRefresh && !options._retry && this.tokenRefresher) {
         try {
-          const newToken = await this.getOrRefreshToken();
-          if (newToken) {
+          const refreshed = await this.getOrRefreshToken();
+          if (refreshed) {
             return this.request<T>(path, {
               ...options,
               _retry: true,
-              token: newToken,
+              token: typeof refreshed === 'string' ? refreshed : undefined,
             });
           }
         } catch {
@@ -112,8 +113,23 @@ export class HttpClient {
         if (data) {
           if (typeof data.detail === 'string') {
             message = data.detail;
-          } else if (Array.isArray(data.detail) && data.detail[0]?.msg) {
-            message = data.detail[0].msg;
+          } else if (Array.isArray(data.detail)) {
+            const formattedErrors = data.detail
+              .map((err: { loc?: (string | number)[]; msg?: string }) => {
+                const field = Array.isArray(err.loc) ? err.loc[err.loc.length - 1] : '';
+                let msg = err.msg || 'Invalid value';
+                msg = msg.replace(/^Value error,\s*/i, '');
+                if (field && field !== 'body') {
+                  const fieldName = String(field).charAt(0).toUpperCase() + String(field).slice(1).replace(/_/g, ' ');
+                  return `${fieldName}: ${msg}`;
+                }
+                return msg;
+              })
+              .filter(Boolean);
+
+            if (formattedErrors.length > 0) {
+              message = formattedErrors.join('\n');
+            }
           } else if (data.message) {
             message = data.message;
           } else if (data.error) {
@@ -143,7 +159,7 @@ export class HttpClient {
   }
 
   // Mutex pattern to ensure only 1 refresh request is made for concurrent 401s
-  private async getOrRefreshToken(): Promise<string | null> {
+  private async getOrRefreshToken(): Promise<boolean | string | null> {
     if (!this.isRefreshing) {
       this.isRefreshing = true;
       this.refreshPromise = (async () => {

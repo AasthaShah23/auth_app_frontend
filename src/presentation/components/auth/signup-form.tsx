@@ -6,7 +6,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { User, Mail, Lock, Eye, EyeOff, Loader2, UserPlus } from "lucide-react";
-import { signupSchema, type SignupFormValues } from "@/shared/validators/auth.validator";
+import {
+  signupSchema,
+  type SignupFormValues,
+} from "@/shared/validators/auth.validator";
 import { useAuthStore } from "@/presentation/store/auth.store";
 import { toast } from "sonner";
 
@@ -16,12 +19,18 @@ export function SignupForm() {
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
   const [isMounted, setIsMounted] = React.useState(false);
 
-  const { signup, clearError, isLoading } = useAuthStore();
+  const [isLoading, setIsLoading] = React.useState(false);
+  const { signup, isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   React.useEffect(() => {
     setIsMounted(true);
-    clearError();
-  }, [clearError]);
+  }, []);
+
+  React.useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.replace("/dashboard");
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   const {
     register,
@@ -41,9 +50,10 @@ export function SignupForm() {
   });
 
   async function onSubmit(data: SignupFormValues) {
+    setIsLoading(true);
     try {
-      await signup({
-        fullName: data.fullName,
+      const session = await signup({
+        name: data.fullName,
         email: data.email,
         password: data.password,
       });
@@ -53,17 +63,24 @@ export function SignupForm() {
 
       // Show success toast notification
       toast.success("Account Created", {
-        description: "Welcome! Your account has been created successfully.",
+        description:
+          session?.message ||
+          "Registration successful. A verification link has been sent to your email address.",
       });
 
       router.push("/dashboard");
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : "Registration failed. Please try again.";
+        err instanceof Error
+          ? err.message
+          : "Registration failed. Please try again.";
       // Show error toast notification
       toast.error("Sign Up Failed", {
         description: message,
+        className: "whitespace-pre-line",
       });
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -76,13 +93,12 @@ export function SignupForm() {
 
       {/* Main White Glassmorphic Card */}
       <div className="relative bg-white/85 backdrop-blur-xl border border-zinc-200/80 rounded-[36px] px-7 py-8 sm:px-9 sm:py-10 shadow-[0_20px_50px_rgba(0,0,0,0.06)] transition-all">
-        
         {/* Top Avatar with soft ambient halo */}
         <div className="flex flex-col items-center mb-6">
           <div className="relative">
             {/* Back ambient halo */}
             <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-rose-200/60 via-purple-200/40 to-blue-200/50 blur-md scale-110" />
-            
+
             {/* Avatar Circle */}
             <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-tr from-indigo-50 to-purple-50 border border-indigo-100/90 backdrop-blur-md flex items-center justify-center shadow-inner overflow-hidden">
               <UserPlus className="w-10 h-10 sm:w-12 sm:h-12 text-indigo-400/90 drop-shadow-sm" />
@@ -91,9 +107,7 @@ export function SignupForm() {
           <h2 className="mt-3 text-lg font-bold tracking-tight text-zinc-900">
             Create Account
           </h2>
-          <p className="text-xs text-zinc-500">
-            Sign up to get started
-          </p>
+          <p className="text-xs text-zinc-500">Sign up to get started</p>
         </div>
 
         {/* Signup Form */}
@@ -197,7 +211,9 @@ export function SignupForm() {
                 onClick={() => setShowConfirmPassword((prev) => !prev)}
                 className="absolute right-0 text-zinc-400 hover:text-zinc-700 transition-colors focus:outline-none"
                 tabIndex={-1}
-                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                aria-label={
+                  showConfirmPassword ? "Hide password" : "Show password"
+                }
                 suppressHydrationWarning
               >
                 {showConfirmPassword ? (

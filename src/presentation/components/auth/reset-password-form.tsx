@@ -65,6 +65,7 @@ export function ResetPasswordForm() {
         err instanceof Error ? err.message : "Failed to reset password. Please try again.";
       toast.error("Reset Failed", {
         description: message,
+        className: "whitespace-pre-line",
       });
     } finally {
       setIsLoading(false);
