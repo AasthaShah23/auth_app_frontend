@@ -1,6 +1,6 @@
-import { UserProfile } from '../entities/profile.entity';
+import { ProfileDTO } from '@/infrastructure/dtos/profile.dto';
 
 export interface IProfileRepository {
-  getProfile(): Promise<UserProfile>;
+  getProfile(): Promise<ProfileDTO>;
 }
 

@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { SignupForm } from "@/presentation/components/modules/auth/signup-form";
+import { SignupForm } from "@/presentation/components/auth/signup-form";
 
 export const metadata: Metadata = {
   title: "Sign Up - Create an Account",
@@ -21,4 +21,3 @@ export default function SignupPage() {
     </main>
   );
 }
-

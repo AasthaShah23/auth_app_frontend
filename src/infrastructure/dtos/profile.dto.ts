@@ -1,14 +1,8 @@
 export interface ProfileDTO {
-  id?: number | string;
-  name?: string;
-  full_name?: string;
-  fullName?: string;
+  id: number;
+  name: string;
   email: string;
-  is_email_verified?: boolean;
-  isEmailVerified?: boolean;
-  is_active?: boolean;
-  isActive?: boolean;
-  created_at?: string;
-  createdAt?: string;
+  is_email_verified: boolean;
+  is_active: boolean;
+  created_at: string;
 }
-

@@ -1,5 +1,4 @@
 export * from './entities/auth.entity';
-export * from './entities/profile.entity';
 export * from './repositories/auth.repository';
 export * from './repositories/profile.repository';
 export * from './usecases/login.usecase';
@@ -9,3 +8,5 @@ export * from './usecases/refresh-token.usecase';
 export * from './usecases/forgot-password.usecase';
 export * from './usecases/reset-password.usecase';
 export * from './usecases/profile/get-profile.usecase';
+export * from './usecases/auth/resend-verification.usecase';
+export * from './usecases/auth/verify-email.usecase';

@@ -5,16 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/presentation/store/auth.store";
-import { LogOut, Loader2, User as UserIcon } from "lucide-react";
+import { LogOut, Loader2, Shield } from "lucide-react";
 import { toast } from "sonner";
 
 export const Header: React.FC = () => {
   const router = useRouter();
-  // Extract user details and authentication state directly from Zustand global store
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, profile, isAuthenticated, logout } = useAuthStore();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const displayName = user?.name || user?.email || "User";
+  const displayName = profile?.name || user?.name || "User";
+  const isAdmin = (user?.role || "").toLowerCase() === "admin";
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -30,7 +30,6 @@ export const Header: React.FC = () => {
       toast.error("Logout Failed", {
         description: message,
       });
-      // Do NOT redirect or clear local state on error
     } finally {
       setIsLoggingOut(false);
     }
@@ -42,7 +41,7 @@ export const Header: React.FC = () => {
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="font-bold text-xl tracking-tight bg-gradient-to-r  bg-clip-text text-black"
+            className="font-bold text-xl tracking-tight bg-gradient-to-r bg-clip-text text-black"
           >
             AuthApp
           </Link>
@@ -62,7 +61,7 @@ export const Header: React.FC = () => {
             Profile
           </Link>
 
-          {isAuthenticated ? (
+          {isAuthenticated && (
             <div className="flex items-center gap-3 pl-2 border-l border-zinc-200">
               <Button
                 variant="outline"
@@ -82,15 +81,6 @@ export const Header: React.FC = () => {
                     Logout
                   </>
                 )}
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Button asChild variant="outline" size="sm">
-                <Link href="/login">Login</Link>
-              </Button>
-              <Button asChild size="sm">
-                <Link href="/signup">Sign Up</Link>
               </Button>
             </div>
           )}

@@ -16,12 +16,18 @@ export function SignupForm() {
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
   const [isMounted, setIsMounted] = React.useState(false);
 
-  const { signup, clearError, isLoading } = useAuthStore();
+  const [isLoading, setIsLoading] = React.useState(false);
+  const { signup, isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   React.useEffect(() => {
     setIsMounted(true);
-    clearError();
-  }, [clearError]);
+  }, []);
+
+  React.useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.replace("/dashboard");
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   const {
     register,
@@ -41,6 +47,7 @@ export function SignupForm() {
   });
 
   async function onSubmit(data: SignupFormValues) {
+    setIsLoading(true);
     try {
       await signup({
         fullName: data.fullName,
@@ -64,6 +71,8 @@ export function SignupForm() {
       toast.error("Sign Up Failed", {
         description: message,
       });
+    } finally {
+      setIsLoading(false);
     }
   }
 

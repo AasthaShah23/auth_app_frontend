@@ -16,12 +16,19 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = React.useState(false);
   const [isMounted, setIsMounted] = React.useState(false);
 
-  const { login, clearError, isLoading } = useAuthStore();
+  const [isLoading, setIsLoading] = React.useState(false);
+  const { login, isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   React.useEffect(() => {
     setIsMounted(true);
-    clearError();
-  }, [clearError]);
+  }, []);
+
+  React.useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      const redirectPath = searchParams?.get("redirect") || "/dashboard";
+      router.replace(redirectPath);
+    }
+  }, [authLoading, isAuthenticated, router, searchParams]);
 
   const {
     register,
@@ -39,6 +46,7 @@ export function LoginForm() {
   });
 
   async function onSubmit(data: LoginFormValues) {
+    setIsLoading(true);
     try {
       await login({
         email: data.email,
@@ -58,10 +66,11 @@ export function LoginForm() {
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Invalid email or password. Please try again.";
-      // Show error toast notification
       toast.error("Login Failed", {
         description: message,
       });
+    } finally {
+      setIsLoading(false);
     }
   }
 
