@@ -107,14 +107,20 @@ export const useAuthStore = create<AuthState>()(
           try {
             const profile = await container.getProfileUseCase.execute();
             if (profile) {
+              const userRole = (profile.role || "user").toLowerCase();
               set((state) => ({
-                profile,
-                user: state.user || {
-                  id: String(profile.id),
-                  name: profile.name,
-                  email: profile.email,
-                  role: "user",
+                profile: {
+                  ...profile,
+                  role: userRole,
                 },
+                user: state.user
+                  ? { ...state.user, role: userRole }
+                  : {
+                      id: String(profile.id),
+                      name: profile.name,
+                      email: profile.email,
+                      role: userRole,
+                    },
               }));
             }
             return profile;
@@ -125,6 +131,7 @@ export const useAuthStore = create<AuthState>()(
                 id: Number(state.user?.id) || 0,
                 name: state.user?.name || "User",
                 email: state.user?.email || "",
+                role: (state.user?.role || "user").toLowerCase(),
                 is_email_verified: false,
                 is_active: true,
                 created_at: state.profile?.created_at || "",
@@ -156,15 +163,19 @@ export const useAuthStore = create<AuthState>()(
             // 1. Primary session endpoint: GET /api/profile/me using HttpOnly cookie (ONCE on refresh)
             const profile = await container.getProfileUseCase.execute();
             if (profile) {
+              const userRole = (profile.role || get().user?.role || "user").toLowerCase();
               const user: User = {
                 id: String(profile.id),
                 name: profile.name,
                 email: profile.email,
-                role: (get().user?.role || "user").toLowerCase(),
+                role: userRole,
               };
               set({
                 user,
-                profile,
+                profile: {
+                  ...profile,
+                  role: userRole,
+                },
                 isAuthenticated: true,
                 isLoading: false,
               });
@@ -226,7 +237,9 @@ export const useAuthStore = create<AuthState>()(
         const targetEmail =
           email || get().user?.email || get().profile?.email || "";
         if (!targetEmail) {
-          throw new Error("Please enter your email address to resend the verification link.");
+          throw new Error(
+            "Please enter your email address to resend the verification link.",
+          );
         }
         const result =
           await container.resendVerificationUseCase.execute(targetEmail);
@@ -263,8 +276,8 @@ export const useAuthStore = create<AuthState>()(
     {
       name: "AuthStore",
       enabled: process.env.NODE_ENV !== "production",
-    }
-  )
+    },
+  ),
 );
 
 // Expose store globally in browser console for debugging
@@ -276,7 +289,7 @@ if (typeof window !== "undefined") {
 // Connect HttpClient hooks to Zustand state and HttpOnly cookie refresh
 httpClient.setTokenProvider(() => null);
 httpClient.setTokenRefresher(async () =>
-  useAuthStore.getState().refreshAuthToken()
+  useAuthStore.getState().refreshAuthToken(),
 );
 httpClient.setOnUnauthorized(() => {
   useAuthStore.getState().logout();
